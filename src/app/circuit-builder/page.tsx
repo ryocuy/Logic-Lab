@@ -122,7 +122,6 @@ export default function CircuitBuilderPage() {
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, id: string) => {
-    // e.preventDefault(); // Might be needed to prevent default scroll/zoom on touch
     handleInteractionStart(e.touches[0].clientX, e.touches[0].clientY, id, e.target);
   };
   
@@ -208,11 +207,14 @@ export default function CircuitBuilderPage() {
   }, [handleInteractionMove]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    // e.preventDefault(); // May be needed depending on desired scroll/zoom behavior
+    // Prevent page scroll only when a component is being dragged or a connection is being drawn
+    if ((draggingComponent || connecting) && e.touches.length > 0) {
+        e.preventDefault();
+    }
     if (e.touches.length > 0) {
         handleInteractionMove(e.touches[0].clientX, e.touches[0].clientY);
     }
-  }, [handleInteractionMove]);
+  }, [draggingComponent, connecting, handleInteractionMove]);
 
 
   const handleInteractionEnd = useCallback(() => {
@@ -238,7 +240,7 @@ export default function CircuitBuilderPage() {
   useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('touchmove', handleTouchMove, { passive: false }); // passive: false for preventDefault
+    document.addEventListener('touchmove', handleTouchMove, { passive: false }); 
     document.addEventListener('touchend', handleTouchEnd);
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
@@ -755,4 +757,6 @@ export default function CircuitBuilderPage() {
     </PageShell>
   );
 }
+    
+
     
