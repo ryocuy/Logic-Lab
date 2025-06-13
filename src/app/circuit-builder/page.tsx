@@ -93,8 +93,8 @@ export default function CircuitBuilderPage() {
     const newComponent: Component = {
       id: `${type}-${Date.now()}`,
       type,
-      x: Math.random() * 200 + 30, // Adjusted for smaller initial spread
-      y: Math.random() * 150 + 30, // Adjusted for smaller initial spread
+      x: Math.random() * 200 + 30, 
+      y: Math.random() * 150 + 30, 
       value: type === 'INPUT' ? 0 : undefined,
       inputs: {},
       connections: [],
@@ -102,23 +102,31 @@ export default function CircuitBuilderPage() {
     setComponents(prev => [...prev, newComponent]);
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, id: string) => {
-    if ((e.target as HTMLElement).closest('.delete-component-button')) {
+  const handleInteractionStart = (clientX: number, clientY: number, id: string, target: EventTarget | null) => {
+    if ((target as HTMLElement)?.closest('.delete-component-button')) {
       return; 
     }
-    e.stopPropagation();
     const component = components.find(c => c.id === id);
     if (component && canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       setDraggingComponent(id);
       setDragOffset({
-        x: e.clientX - canvasRect.left - component.x,
-        y: e.clientY - canvasRect.top - component.y,
+        x: clientX - canvasRect.left - component.x,
+        y: clientY - canvasRect.top - component.y,
       });
     }
   };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, id: string) => {
+    handleInteractionStart(e.clientX, e.clientY, id, e.target);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    // e.preventDefault(); // Might be needed to prevent default scroll/zoom on touch
+    handleInteractionStart(e.touches[0].clientX, e.touches[0].clientY, id, e.target);
+  };
   
-  const handlePortClick = (e: React.MouseEvent<HTMLDivElement>, componentId: string, portName: string, isOutputPort: boolean) => {
+  const handlePortClick = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, componentId: string, portName: string, isOutputPort: boolean) => {
     e.stopPropagation();
     if (!connecting) {
       if (isOutputPort) { 
@@ -180,24 +188,45 @@ export default function CircuitBuilderPage() {
     }
   };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleInteractionMove = useCallback((clientX: number, clientY: number) => {
     if (draggingComponent && canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       const compWidth = (typeof window !== 'undefined' && window.innerWidth < 768) ? 75 : 90;
       const compHeight = (typeof window !== 'undefined' && window.innerWidth < 768) ? 50 : 60;
-      const x = e.clientX - canvasRect.left - dragOffset.x;
-      const y = e.clientY - canvasRect.top - dragOffset.y;
+      const x = clientX - canvasRect.left - dragOffset.x;
+      const y = clientY - canvasRect.top - dragOffset.y;
       setComponents(prev => prev.map(c => c.id === draggingComponent ? { ...c, x: Math.max(0, Math.min(x, canvasRect.width - compWidth)), y: Math.max(0, Math.min(y, canvasRect.height - compHeight)) } : c));
     }
     if (connecting && canvasRef.current) {
         const canvasRect = canvasRef.current.getBoundingClientRect();
-        setConnecting(prev => prev ? { ...prev, x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top } : null);
+        setConnecting(prev => prev ? { ...prev, x: clientX - canvasRect.left, y: clientY - canvasRect.top } : null);
     }
   }, [draggingComponent, dragOffset, connecting]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    handleInteractionMove(e.clientX, e.clientY);
+  }, [handleInteractionMove]);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    // e.preventDefault(); // May be needed depending on desired scroll/zoom behavior
+    if (e.touches.length > 0) {
+        handleInteractionMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, [handleInteractionMove]);
+
+
+  const handleInteractionEnd = useCallback(() => {
     setDraggingComponent(null);
   }, []);
+
+  const handleMouseUp = useCallback(() => {
+    handleInteractionEnd();
+  }, [handleInteractionEnd]);
+
+  const handleTouchEnd = useCallback(() => {
+    handleInteractionEnd();
+  }, [handleInteractionEnd]);
+
 
   const handleCanvasClick = () => {
     if (connecting) {
@@ -209,11 +238,15 @@ export default function CircuitBuilderPage() {
   useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false }); // passive: false for preventDefault
+    document.addEventListener('touchend', handleTouchEnd);
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [handleMouseMove, handleMouseUp]);
+  }, [handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   const runSimulation = () => {
     const componentMap = new Map(components.map(c => [c.id, {...c, currentValue: c.value } ])); 
@@ -381,7 +414,7 @@ export default function CircuitBuilderPage() {
     let componentWidth = 90; 
     let componentHeight = 60;
 
-    if (typeof window !== 'undefined' && window.innerWidth < 768) { // md breakpoint
+    if (typeof window !== 'undefined' && window.innerWidth < 768) { 
         componentWidth = 75; 
         componentHeight = 50; 
     }
@@ -551,10 +584,11 @@ export default function CircuitBuilderPage() {
                 <CardContent className="h-full">
                 {components.map(comp => (
                     <div
-                    key={comp.id}
-                    className="gate-component-render group"
-                    style={{ left: comp.x, top: comp.y, zIndex: draggingComponent === comp.id ? 10 : 1 }}
-                    onMouseDown={(e) => handleMouseDown(e, comp.id)}
+                      key={comp.id}
+                      className="gate-component-render group"
+                      style={{ left: comp.x, top: comp.y, zIndex: draggingComponent === comp.id ? 10 : 1 }}
+                      onMouseDown={(e) => handleMouseDown(e, comp.id)}
+                      onTouchStart={(e) => handleTouchStart(e, comp.id)}
                     >
                     <button 
                         className="delete-component-button absolute -top-2 -right-2 p-0.5 bg-destructive text-destructive-foreground rounded-full opacity-70 group-hover:opacity-100 transition-opacity z-20"
@@ -566,7 +600,7 @@ export default function CircuitBuilderPage() {
                     >
                         <XCircle className="h-4 w-4" />
                     </button>
-                    <div className="font-bold text-base">{comp.type}</div>
+                    <div className="font-bold text-base md:text-base">{comp.type}</div>
                     <div className="gate-symbol-inner">{gateSymbols[comp.type]}</div>
                     {comp.type === 'INPUT' && (
                          <div className="flex items-center space-x-0.5 md:space-x-1 mt-0.5 md:mt-1">
@@ -587,6 +621,7 @@ export default function CircuitBuilderPage() {
                              className="connection-point-render input"
                              style={{ top: `${(index + 1) * (portHeight / (gateInputPorts[comp.type].length + 1)) - 6}px` }}
                              onClick={(e) => handlePortClick(e, comp.id, portName, false)}
+                             onTouchStart={(e) => handlePortClick(e, comp.id, portName, false)}
                              title={`Input: ${portName}`}
                         />
                     );})}
@@ -597,6 +632,7 @@ export default function CircuitBuilderPage() {
                              className="connection-point-render output"
                              style={{ top: `${(index + 1) * (portHeight / (gateOutputPorts[comp.type].length + 1)) - 6}px`}} 
                              onClick={(e) => handlePortClick(e, comp.id, portName, true)}
+                             onTouchStart={(e) => handlePortClick(e, comp.id, portName, true)}
                              title={`Output: ${portName}`}
                         />
                     );})}
@@ -719,6 +755,4 @@ export default function CircuitBuilderPage() {
     </PageShell>
   );
 }
-    
-
     
