@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import PageShell from '@/components/PageShell';
@@ -35,6 +34,8 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
   const sanitizedInput = input.trim();
   if (sanitizedInput === "") return "Input kosong, tidak ada langkah konversi.";
 
+  let tipsAndTable = "\n\n---\n\nTips & Tabel Referensi:\n";
+
   switch (type) {
     case 'binToDec':
       if (!/^[01]+$/.test(sanitizedInput)) return `Input "${sanitizedInput}" bukan biner yang valid.`;
@@ -55,6 +56,16 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       steps += `   ${calculationStepsBinToDec.join(' + ')}\n`;
       steps += `   = ${decValueBinToDec}\n`;
       steps += `\nJadi, ${sanitizedInput} (biner) = ${output} (desimal).`;
+      tipsAndTable += `
+Tips:
+- Setiap digit biner dikalikan dengan 2 pangkat posisinya, dimulai dari 0 di paling kanan.
+- Jumlahkan semua hasil perkalian untuk mendapatkan nilai desimal.
+
+Tabel Singkat (Posisi dan Pangkat 2):
+Posisi (dari kanan):  7    6    5    4    3    2    1    0
+Nilai Pangkat 2:    128   64   32   16    8    4    2    1
+Contoh untuk 1010: (0×2^0) + (1×2^1) + (0×2^2) + (1×2^3) = 0 + 2 + 0 + 8 = 10
+`;
       break;
 
     case 'decToBin':
@@ -66,81 +77,44 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       if (numDecToBin === 0) {
         steps += `   - ${sanitizedInput} (desimal) langsung dikonversi menjadi 0 (biner).\n`;
         steps += `\nJadi, ${sanitizedInput} (desimal) = 0 (biner).`;
-        break;
+      } else {
+        const remaindersDecToBin: number[] = [];
+        let currentNumDecToBin = numDecToBin;
+        let stepCounterDecToBin = 1;
+        while (currentNumDecToBin > 0) {
+          const remainder = currentNumDecToBin % 2;
+          const quotient = Math.floor(currentNumDecToBin / 2);
+          steps += `   Langkah ${stepCounterDecToBin}: ${currentNumDecToBin} ÷ 2 = ${quotient}, Sisa = ${remainder}\n`;
+          remaindersDecToBin.push(remainder);
+          currentNumDecToBin = quotient;
+          stepCounterDecToBin++;
+        }
+        steps += `\n3. Tuliskan semua sisa pembagian dari yang terakhir (paling bawah) ke yang pertama (paling atas).\n`;
+        steps += `   Sisa (dari bawah ke atas): ${remaindersDecToBin.slice().reverse().join('')}\n`;
+        steps += `\nJadi, ${sanitizedInput} (desimal) = ${output} (biner).`;
       }
-      const remaindersDecToBin: number[] = [];
-      let currentNumDecToBin = numDecToBin;
-      let stepCounterDecToBin = 1;
-      while (currentNumDecToBin > 0) {
-        const remainder = currentNumDecToBin % 2;
-        const quotient = Math.floor(currentNumDecToBin / 2);
-        steps += `   Langkah ${stepCounterDecToBin}: ${currentNumDecToBin} ÷ 2 = ${quotient}, Sisa = ${remainder}\n`;
-        remaindersDecToBin.push(remainder);
-        currentNumDecToBin = quotient;
-        stepCounterDecToBin++;
-      }
-      steps += `\n3. Tuliskan semua sisa pembagian dari yang terakhir (paling bawah) ke yang pertama (paling atas).\n`;
-      steps += `   Sisa (dari bawah ke atas): ${remaindersDecToBin.slice().reverse().join('')}\n`;
-      steps += `\nJadi, ${sanitizedInput} (desimal) = ${output} (biner).`;
-      break;
+      tipsAndTable += `
+Tips:
+- Bagi bilangan desimal dengan 2 secara berulang hingga hasil bagi adalah 0.
+- Catat sisa pembagian (0 atau 1) dari setiap langkah.
+- Hasil biner adalah urutan sisa pembagian dibaca dari bawah ke atas.
 
-    case 'hexToBin':
-      if (!/^[0-9A-Fa-f]+$/.test(sanitizedInput)) return `Input "${sanitizedInput}" bukan heksadesimal yang valid.`;
-      steps += `Untuk mengonversi bilangan heksadesimal ${sanitizedInput.toUpperCase()} ke biner:\n`;
-      steps += `1. Setiap digit heksadesimal dikonversi menjadi representasi biner 4-bit.\n`;
-      steps += `   (Ingat: A=10, B=11, C=12, D=13, E=14, F=15)\n\n`;
-      const inputHexToBin = sanitizedInput.toUpperCase();
-      let binResultHexToBin = "";
-      for (let i = 0; i < inputHexToBin.length; i++) {
-        const hexDigit = inputHexToBin[i];
-        const decEquiv = parseInt(hexDigit, 16);
-        const binEquiv = decEquiv.toString(2).padStart(4, '0');
-        steps += `   - Digit heksadesimal '${hexDigit}':\n`;
-        steps += `     Nilai desimalnya adalah ${decEquiv}.\n`;
-        steps += `     ${decEquiv} (desimal) dikonversi ke biner 4-bit menjadi ${binEquiv}.\n`;
-        steps += `     (Caranya: ${decEquiv} ÷ 2 = ${Math.floor(decEquiv/2)} sisa ${decEquiv%2}; lanjut sampai habis, contoh untuk A=10: 10->0, 5->1, 2->0, 1->1 => 1010)\n`;
-        steps += `     Jadi, '${hexDigit}' (heksadesimal) = ${binEquiv} (biner).\n\n`;
-        binResultHexToBin += binEquiv;
-      }
-      steps += `2. Gabungkan semua hasil biner 4-bit tersebut:\n`;
-      steps += `   ${inputHexToBin.split('').map(d => parseInt(d,16).toString(2).padStart(4,'0')).join(' ')} = ${binResultHexToBin}\n`;
-      
-      let finalOutputHexToBin = binResultHexToBin.replace(/^0+(?!$)/, '');
-      if (finalOutputHexToBin === "") finalOutputHexToBin = "0"; 
-
-      if (binResultHexToBin !== finalOutputHexToBin && sanitizedInput !== "0") {
-          steps += `3. (Opsional) Hilangkan nol di bagian paling kiri (leading zeros), kecuali jika hasilnya hanya "0":\n`;
-          steps += `   Hasil akhir: ${finalOutputHexToBin}\n`;
-      }
-      steps += `\nJadi, ${inputHexToBin} (heksadesimal) = ${finalOutputHexToBin} (biner).`;
-      break;
-
-    case 'octToBin':
-      if (!/^[0-7]+$/.test(sanitizedInput)) return `Input "${sanitizedInput}" bukan oktal yang valid.`;
-      steps += `Untuk mengonversi bilangan oktal ${sanitizedInput} ke biner:\n`;
-      steps += `1. Setiap digit oktal dikonversi menjadi representasi biner 3-bit.\n\n`;
-      let binResultOctToBin = "";
-      for (let i = 0; i < sanitizedInput.length; i++) {
-        const octDigit = sanitizedInput[i];
-        const decEquivOct = parseInt(octDigit, 8);
-        const binEquiv = decEquivOct.toString(2).padStart(3, '0');
-        steps += `   - Digit oktal '${octDigit}':\n`;
-        steps += `     Nilai desimalnya adalah ${decEquivOct}.\n`;
-        steps += `     ${decEquivOct} (desimal) dikonversi ke biner 3-bit menjadi ${binEquiv}.\n`;
-        steps += `     Jadi, '${octDigit}' (oktal) = ${binEquiv} (biner).\n\n`;
-        binResultOctToBin += binEquiv;
-      }
-      steps += `2. Gabungkan semua hasil biner 3-bit tersebut:\n`;
-      steps += `   ${sanitizedInput.split('').map(d => parseInt(d,8).toString(2).padStart(3,'0')).join(' ')} = ${binResultOctToBin}\n`;
-
-      let finalOutputOctToBin = binResultOctToBin.replace(/^0+(?!$)/, '');
-      if (finalOutputOctToBin === "") finalOutputOctToBin = "0";
-
-      if (binResultOctToBin !== finalOutputOctToBin && sanitizedInput !== "0") {
-          steps += `3. (Opsional) Hilangkan nol di bagian paling kiri (leading zeros), kecuali jika hasilnya hanya "0":\n`;
-          steps += `   Hasil akhir: ${finalOutputOctToBin}\n`;
-      }
-      steps += `\nJadi, ${sanitizedInput} (oktal) = ${finalOutputOctToBin} (biner).`;
+Tabel Singkat (Desimal ke Biner):
+Desimal   Biner (min. 4-bit)
+0         0000
+1         0001
+2         0010
+3         0011
+4         0100
+5         0101
+6         0110
+7         0111
+8         1000
+9         1001
+10        1010
+...       ...
+15        1111
+`;
       break;
 
     case 'binToHex':
@@ -155,7 +129,6 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
           }
       }
       if (sanitizedInput === "0" && paddedInputBinToHex !== "0000") paddedInputBinToHex = "0000";
-
 
       steps += `   Input setelah padding: ${paddedInputBinToHex}\n`;
       const groupsBinToHex: string[] = [];
@@ -173,11 +146,35 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       });
       let finalHexOutput = hexChars.join('');
       if (finalHexOutput === "" && sanitizedInput === "0") finalHexOutput = "0";
-      else if (finalHexOutput === "") finalHexOutput = "0"; // Should handle empty input if it got this far
+      else if (finalHexOutput === "") finalHexOutput = "0"; 
 
       steps += `\n3. Gabungkan hasil heksadesimal:\n`;
       steps += `   Hasil: ${finalHexOutput}\n`;
-      steps += `\nJadi, ${sanitizedInput} (biner) = ${output} (heksadesimal).`; // output here is from main conversion
+      steps += `\nJadi, ${sanitizedInput} (biner) = ${output} (heksadesimal).`;
+      tipsAndTable += `
+Tips:
+- Kelompokkan bit biner menjadi grup 4-bit dari kanan. Tambahkan nol ('0') di kiri jika perlu.
+- Setiap grup 4-bit biner dikonversi menjadi satu digit heksadesimal.
+
+Tabel Singkat (Biner ke Heksadesimal):
+Biner (4-bit)  Heksadesimal  Desimal
+0000           0             0
+0001           1             1
+0010           2             2
+0011           3             3
+0100           4             4
+0101           5             5
+0110           6             6
+0111           7             7
+1000           8             8
+1001           9             9
+1010           A             10
+1011           B             11
+1100           C             12
+1101           D             13
+1110           E             14
+1111           F             15
+`;
       break;
       
     case 'decToHex':
@@ -189,23 +186,39 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       if (numDecToHex === 0) {
           steps += `   - ${sanitizedInput} (desimal) langsung dikonversi menjadi 0 (heksadesimal).\n`;
           steps += `\nJadi, ${sanitizedInput} (desimal) = 0 (heksadesimal).`;
-          break;
+      } else {
+        const hexMap = "0123456789ABCDEF";
+        const remaindersDecToHex: string[] = [];
+        let currentNumHex = numDecToHex;
+        let stepCounterHex = 1;
+        while (currentNumHex > 0) {
+            const remainder = currentNumHex % 16;
+            const quotient = Math.floor(currentNumHex / 16);
+            steps += `   Langkah ${stepCounterHex}: ${currentNumHex} ÷ 16 = ${quotient}, Sisa = ${remainder} (Heks: ${hexMap[remainder]})\n`;
+            remaindersDecToHex.push(hexMap[remainder]);
+            currentNumHex = quotient;
+            stepCounterHex++;
+        }
+        steps += `\n3. Tuliskan semua sisa (dalam bentuk heksadesimal) dari yang terakhir ke yang pertama.\n`;
+        steps += `   Sisa (dari bawah ke atas): ${remaindersDecToHex.slice().reverse().join('')}\n`;
+        steps += `\nJadi, ${sanitizedInput} (desimal) = ${output} (heksadesimal).`;
       }
-      const hexMap = "0123456789ABCDEF";
-      const remaindersDecToHex: string[] = [];
-      let currentNumHex = numDecToHex;
-      let stepCounterHex = 1;
-      while (currentNumHex > 0) {
-          const remainder = currentNumHex % 16;
-          const quotient = Math.floor(currentNumHex / 16);
-          steps += `   Langkah ${stepCounterHex}: ${currentNumHex} ÷ 16 = ${quotient}, Sisa = ${remainder} (Heks: ${hexMap[remainder]})\n`;
-          remaindersDecToHex.push(hexMap[remainder]);
-          currentNumHex = quotient;
-          stepCounterHex++;
-      }
-      steps += `\n3. Tuliskan semua sisa (dalam bentuk heksadesimal) dari yang terakhir ke yang pertama.\n`;
-      steps += `   Sisa (dari bawah ke atas): ${remaindersDecToHex.slice().reverse().join('')}\n`;
-      steps += `\nJadi, ${sanitizedInput} (desimal) = ${output} (heksadesimal).`;
+      tipsAndTable += `
+Tips:
+- Bagi bilangan desimal dengan 16 secara berulang hingga hasil bagi 0.
+- Catat sisa pembagian (0-15). Untuk sisa 10-15, gunakan A-F.
+- Hasil heksadesimal adalah urutan sisa (dalam bentuk heksadesimal) dibaca dari bawah ke atas.
+
+Tabel Singkat (Sisa Desimal ke Heksadesimal):
+Desimal Sisa   Heksadesimal
+0 - 9          0 - 9
+10             A
+11             B
+12             C
+13             D
+14             E
+15             F
+`;
       break;
 
     case 'hexToDec':
@@ -228,8 +241,79 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       steps += `   ${calculationStepsHexToDec.join(' + ')}\n`;
       steps += `   = ${decValueHexToDec}\n`;
       steps += `\nJadi, ${sanitizedInput.toUpperCase()} (heksadesimal) = ${output} (desimal).`;
+      tipsAndTable += `
+Tips:
+- Setiap digit heksadesimal dikalikan dengan 16 pangkat posisinya, dimulai dari 0 di paling kanan.
+- Ubah digit A-F menjadi nilai desimalnya (A=10, B=11, ..., F=15) sebelum dikalikan.
+- Jumlahkan semua hasil perkalian.
+
+Tabel Singkat (Digit Heksadesimal ke Desimal):
+Heksadesimal  Desimal
+0             0
+...           ...
+9             9
+A             10
+B             11
+C             12
+D             13
+E             14
+F             15
+`;
       break;
     
+    case 'hexToBin':
+      if (!/^[0-9A-Fa-f]+$/.test(sanitizedInput)) return `Input "${sanitizedInput}" bukan heksadesimal yang valid.`;
+      steps += `Untuk mengonversi bilangan heksadesimal ${sanitizedInput.toUpperCase()} ke biner:\n`;
+      steps += `1. Setiap digit heksadesimal dikonversi menjadi representasi biner 4-bit.\n`;
+      steps += `   (Ingat: A=10, B=11, C=12, D=13, E=14, F=15)\n\n`;
+      const inputHexToBin = sanitizedInput.toUpperCase();
+      let binResultHexToBin = "";
+      for (let i = 0; i < inputHexToBin.length; i++) {
+        const hexDigit = inputHexToBin[i];
+        const decEquiv = parseInt(hexDigit, 16);
+        const binEquiv = decEquiv.toString(2).padStart(4, '0');
+        steps += `   - Digit heksadesimal '${hexDigit}':\n`;
+        steps += `     Nilai desimalnya adalah ${decEquiv}.\n`;
+        steps += `     ${decEquiv} (desimal) dikonversi ke biner 4-bit menjadi ${binEquiv}.\n`;
+        steps += `     Jadi, '${hexDigit}' (heksadesimal) = ${binEquiv} (biner).\n\n`;
+        binResultHexToBin += binEquiv;
+      }
+      steps += `2. Gabungkan semua hasil biner 4-bit tersebut:\n`;
+      steps += `   ${inputHexToBin.split('').map(d => parseInt(d,16).toString(2).padStart(4,'0')).join(' ')} = ${binResultHexToBin}\n`;
+      
+      let finalOutputHexToBin = binResultHexToBin.replace(/^0+(?!$)/, '') || '0';
+
+      if (binResultHexToBin !== finalOutputHexToBin && sanitizedInput !== "0") {
+          steps += `3. (Opsional) Hilangkan nol di bagian paling kiri (leading zeros), kecuali jika hasilnya hanya "0":\n`;
+          steps += `   Hasil akhir: ${finalOutputHexToBin}\n`;
+      }
+      steps += `\nJadi, ${inputHexToBin} (heksadesimal) = ${finalOutputHexToBin} (biner).`;
+      tipsAndTable += `
+Tips:
+- Setiap digit heksadesimal dikonversi langsung menjadi 4-bit biner.
+- Gabungkan semua grup 4-bit biner.
+
+Tabel Singkat (Heksadesimal ke Biner):
+Heksadesimal  Biner (4-bit)  Desimal
+0             0000           0
+1             0001           1
+2             0010           2
+3             0011           3
+4             0100           4
+5             0101           5
+6             0110           6
+7             0111           7
+8             1000           8
+9             1001           9
+A             1010           10
+B             1011           11
+C             1100           12
+D             1101           13
+E             1110           14
+F             1111           15
+`;
+      break;
+
     case 'binToOct':
       if (!/^[01]+$/.test(sanitizedInput)) return `Input "${sanitizedInput}" bukan biner yang valid.`;
       steps += `Untuk mengonversi bilangan biner ${sanitizedInput} ke oktal:\n`;
@@ -263,6 +347,65 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       steps += `\n3. Gabungkan hasil oktal:\n`;
       steps += `   Hasil: ${finalOctOutput}\n`;
       steps += `\nJadi, ${sanitizedInput} (biner) = ${output} (oktal).`;
+      tipsAndTable += `
+Tips:
+- Kelompokkan bit biner menjadi grup 3-bit dari kanan. Tambahkan nol ('0') di kiri jika perlu.
+- Setiap grup 3-bit biner dikonversi menjadi satu digit oktal.
+
+Tabel Singkat (Biner ke Oktal):
+Biner (3-bit)  Oktal
+000            0
+001            1
+010            2
+011            3
+100            4
+101            5
+110            6
+111            7
+`;
+      break;
+
+    case 'octToBin':
+      if (!/^[0-7]+$/.test(sanitizedInput)) return `Input "${sanitizedInput}" bukan oktal yang valid.`;
+      steps += `Untuk mengonversi bilangan oktal ${sanitizedInput} ke biner:\n`;
+      steps += `1. Setiap digit oktal dikonversi menjadi representasi biner 3-bit.\n\n`;
+      let binResultOctToBin = "";
+      for (let i = 0; i < sanitizedInput.length; i++) {
+        const octDigit = sanitizedInput[i];
+        const decEquivOct = parseInt(octDigit, 8);
+        const binEquiv = decEquivOct.toString(2).padStart(3, '0');
+        steps += `   - Digit oktal '${octDigit}':\n`;
+        steps += `     Nilai desimalnya adalah ${decEquivOct}.\n`;
+        steps += `     ${decEquivOct} (desimal) dikonversi ke biner 3-bit menjadi ${binEquiv}.\n`;
+        steps += `     Jadi, '${octDigit}' (oktal) = ${binEquiv} (biner).\n\n`;
+        binResultOctToBin += binEquiv;
+      }
+      steps += `2. Gabungkan semua hasil biner 3-bit tersebut:\n`;
+      steps += `   ${sanitizedInput.split('').map(d => parseInt(d,8).toString(2).padStart(3,'0')).join(' ')} = ${binResultOctToBin}\n`;
+
+      let finalOutputOctToBin = binResultOctToBin.replace(/^0+(?!$)/, '') || '0';
+
+      if (binResultOctToBin !== finalOutputOctToBin && sanitizedInput !== "0") {
+          steps += `3. (Opsional) Hilangkan nol di bagian paling kiri (leading zeros), kecuali jika hasilnya hanya "0":\n`;
+          steps += `   Hasil akhir: ${finalOutputOctToBin}\n`;
+      }
+      steps += `\nJadi, ${sanitizedInput} (oktal) = ${finalOutputOctToBin} (biner).`;
+       tipsAndTable += `
+Tips:
+- Setiap digit oktal dikonversi langsung menjadi 3-bit biner.
+- Gabungkan semua grup 3-bit biner.
+
+Tabel Singkat (Oktal ke Biner):
+Oktal   Biner (3-bit)
+0       000
+1       001
+2       010
+3       011
+4       100
+5       101
+6       110
+7       111
+`;
       break;
 
     case 'decToOct':
@@ -274,22 +417,37 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       if (numDecToOct === 0) {
           steps += `   - ${sanitizedInput} (desimal) langsung dikonversi menjadi 0 (oktal).\n`;
           steps += `\nJadi, ${sanitizedInput} (desimal) = 0 (oktal).`;
-          break;
+      } else {
+        const remaindersDecToOct: number[] = [];
+        let currentNumOct = numDecToOct;
+        let stepCounterOct = 1;
+        while (currentNumOct > 0) {
+            const remainder = currentNumOct % 8;
+            const quotient = Math.floor(currentNumOct / 8);
+            steps += `   Langkah ${stepCounterOct}: ${currentNumOct} ÷ 8 = ${quotient}, Sisa = ${remainder}\n`;
+            remaindersDecToOct.push(remainder);
+            currentNumOct = quotient;
+            stepCounterOct++;
+        }
+        steps += `\n3. Tuliskan semua sisa dari yang terakhir ke yang pertama.\n`;
+        steps += `   Sisa (dari bawah ke atas): ${remaindersDecToOct.slice().reverse().join('')}\n`;
+        steps += `\nJadi, ${sanitizedInput} (desimal) = ${output} (oktal).`;
       }
-      const remaindersDecToOct: number[] = [];
-      let currentNumOct = numDecToOct;
-      let stepCounterOct = 1;
-      while (currentNumOct > 0) {
-          const remainder = currentNumOct % 8;
-          const quotient = Math.floor(currentNumOct / 8);
-          steps += `   Langkah ${stepCounterOct}: ${currentNumOct} ÷ 8 = ${quotient}, Sisa = ${remainder}\n`;
-          remaindersDecToOct.push(remainder);
-          currentNumOct = quotient;
-          stepCounterOct++;
-      }
-      steps += `\n3. Tuliskan semua sisa dari yang terakhir ke yang pertama.\n`;
-      steps += `   Sisa (dari bawah ke atas): ${remaindersDecToOct.slice().reverse().join('')}\n`;
-      steps += `\nJadi, ${sanitizedInput} (desimal) = ${output} (oktal).`;
+      tipsAndTable += `
+Tips:
+- Bagi bilangan desimal dengan 8 secara berulang hingga hasil bagi 0.
+- Catat sisa pembagian (0-7).
+- Hasil oktal adalah urutan sisa pembagian dibaca dari bawah ke atas.
+
+Tabel Singkat (Contoh Desimal ke Oktal):
+Desimal   Oktal
+0         0
+7         7
+8         10  (8 ÷ 8 = 1 sisa 0 -> 10)
+9         11  (9 ÷ 8 = 1 sisa 1 -> 11)
+15        17  (15 ÷ 8 = 1 sisa 7 -> 17)
+16        20  (16 ÷ 8 = 2 sisa 0 -> 20)
+`;
       break;
 
     case 'octToDec':
@@ -311,6 +469,16 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       steps += `   ${calculationStepsOctToDec.join(' + ')}\n`;
       steps += `   = ${decValueOctToDec}\n`;
       steps += `\nJadi, ${sanitizedInput} (oktal) = ${output} (desimal).`;
+      tipsAndTable += `
+Tips:
+- Setiap digit oktal dikalikan dengan 8 pangkat posisinya, dimulai dari 0 di paling kanan.
+- Jumlahkan semua hasil perkalian.
+
+Tabel Singkat (Posisi dan Pangkat 8):
+Posisi (dari kanan):  3    2    1    0
+Nilai Pangkat 8:    512   64    8    1
+Contoh untuk 17 (oktal): (7×8^0) + (1×8^1) = 7 + 8 = 15
+`;
       break;
     
     case 'hexToOct':
@@ -350,6 +518,16 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       });
       steps += `  Hasil oktal gabungan: ${tempOct_hexToOct}\n`;
       steps += `\nJadi, ${sanitizedInput.toUpperCase()} (heksadesimal) = ${output} (oktal).`;
+      tipsAndTable += `
+Tips:
+- Konversi heksadesimal ke biner terlebih dahulu (setiap digit hex ke 4-bit biner).
+- Kemudian, kelompokkan hasil biner menjadi grup 3-bit dari kanan.
+- Konversi setiap grup 3-bit biner ke digit oktal.
+
+Tabel Referensi:
+- Gunakan tabel Heksadesimal ↔ Biner (seperti pada Hex→Bin).
+- Gunakan tabel Biner ↔ Oktal (seperti pada Bin→Oct).
+`;
       break;
 
     case 'octToHex':
@@ -389,12 +567,27 @@ const generateManualConversionSteps = (type: ConversionType, input: string, outp
       });
       steps += `  Hasil heksadesimal gabungan: ${tempHex_octToHex}\n`;
       steps += `\nJadi, ${sanitizedInput} (oktal) = ${output.toUpperCase()} (heksadesimal).`;
+      tipsAndTable += `
+Tips:
+- Konversi oktal ke biner terlebih dahulu (setiap digit oktal ke 3-bit biner).
+- Kemudian, kelompokkan hasil biner menjadi grup 4-bit dari kanan.
+- Konversi setiap grup 4-bit biner ke digit heksadesimal.
+
+Tabel Referensi:
+- Gunakan tabel Oktal ↔ Biner (seperti pada Oct→Bin).
+- Gunakan tabel Biner ↔ Heksadesimal (seperti pada Bin→Hex).
+`;
       break;
 
     default:
       steps += 'Langkah-langkah manual detail untuk konversi spesifik ini belum tersedia secara rinci di sini, namun prinsip umumnya adalah mengubah ke basis 10 (desimal) atau basis 2 (biner) sebagai perantara jika diperlukan.';
+      tipsAndTable += `
+Tips:
+- Untuk konversi yang kompleks, seringkali lebih mudah mengubah ke basis perantara seperti Biner atau Desimal.
+- Pahami hubungan antar basis (misal, Hex ke Biner adalah 4-bit, Oktal ke Biner adalah 3-bit).
+`;
   }
-  return steps;
+  return steps + tipsAndTable;
 };
 
 
@@ -427,13 +620,11 @@ const NumberConverter: React.FC = () => {
           convertedValue = parseInt(currentInputVal, 2).toString(10);
           break;
         case 'decToBin':
-          if (!/^\d+$/.test(currentInputVal)) throw new Error('Input desimal tidak valid (hanya angka).');
-          if (parseInt(currentInputVal, 10) < 0) throw new Error('Input desimal harus non-negatif.');
+          if (!/^\d+$/.test(currentInputVal) && !(parseInt(currentInputVal,10) >= 0) ) throw new Error('Input desimal tidak valid (hanya angka non-negatif).');
           convertedValue = parseInt(currentInputVal, 10).toString(2);
           break;
         case 'decToHex':
-          if (!/^\d+$/.test(currentInputVal)) throw new Error('Input desimal tidak valid (hanya angka).');
-          if (parseInt(currentInputVal, 10) < 0) throw new Error('Input desimal harus non-negatif.');
+          if (!/^\d+$/.test(currentInputVal) && !(parseInt(currentInputVal,10) >= 0) ) throw new Error('Input desimal tidak valid (hanya angka non-negatif).');
           convertedValue = parseInt(currentInputVal, 10).toString(16).toUpperCase();
           break;
         case 'hexToDec':
@@ -450,8 +641,7 @@ const NumberConverter: React.FC = () => {
             convertedValue = parseInt(currentInputVal, 8).toString(2);
             break;
         case 'decToOct':
-            if (!/^\d+$/.test(currentInputVal)) throw new Error('Input desimal tidak valid (hanya angka).');
-            if (parseInt(currentInputVal, 10) < 0) throw new Error('Input desimal harus non-negatif.');
+            if (!/^\d+$/.test(currentInputVal) && !(parseInt(currentInputVal,10) >= 0) ) throw new Error('Input desimal tidak valid (hanya angka non-negatif).');
             convertedValue = parseInt(currentInputVal, 10).toString(8);
             break;
         case 'octToDec':
@@ -466,18 +656,19 @@ const NumberConverter: React.FC = () => {
         case 'hexToBin':
             if (!/^[0-9A-Fa-f]+$/.test(currentInputVal)) throw new Error('Input heksadesimal tidak valid (0-9, A-F).');
             let binFromHexVal = parseInt(currentInputVal, 16).toString(2);
-            if (currentInputVal.match(/^0+$/)) binFromHexVal = "0";
+            if (currentInputVal.match(/^0+$/) && currentInputVal.length > 0) binFromHexVal = "0"; // Handle "0", "00" etc.
+            else if (currentInputVal === "") {convertedValue = "0"; break;}
             convertedValue = binFromHexVal;
             break;
         case 'hexToOct':
             if (!/^[0-9A-Fa-f]+$/.test(currentInputVal)) throw new Error('Input heksadesimal tidak valid (0-9, A-F).');
-            const decFromHexForOct = parseInt(currentInputVal, 16); // Hex to Dec first
-            convertedValue = decFromHexForOct.toString(8); // Then Dec to Oct
+            const decFromHexForOct = parseInt(currentInputVal, 16); 
+            convertedValue = decFromHexForOct.toString(8); 
             break;
         case 'octToHex':
             if (!/^[0-7]+$/.test(currentInputVal)) throw new Error('Input oktal tidak valid (hanya 0-7).');
-            const decFromOctForHex = parseInt(currentInputVal, 8); // Oct to Dec first
-            convertedValue = decFromOctForHex.toString(16).toUpperCase(); // Then Dec to Hex
+            const decFromOctForHex = parseInt(currentInputVal, 8); 
+            convertedValue = decFromOctForHex.toString(16).toUpperCase(); 
             break;
         default:
           throw new Error('Tipe konversi tidak valid.');
@@ -748,5 +939,3 @@ export default function ConverterPage() {
     </PageShell>
   );
 }
-    
-
