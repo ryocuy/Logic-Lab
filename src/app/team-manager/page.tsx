@@ -17,11 +17,11 @@ interface TeamMember {
 }
 
 const defaultTeamMembers: TeamMember[] = [
-  { id: '1', name: 'SATRIO AIL SYAMSUDIN', nim: '112410044', task: 'Circuit Builder Development', progress: 0 },
-  { id: '2', name: 'ACH RIZKY NUR FEBRIAN', nim: '112410004', task: 'Converter & Calculator', progress: 0 },
-  { id: '3', name: 'AIZ SALAS AL FAUZY', nim: '112410013', task: 'UI/UX Design', progress: 0 },
-  { id: '4', name: 'M FATICHUL ICHSAN', nim: '112410026', task: 'Testing', progress: 0 },
-  { id: '5', name: 'MUHAMMAD NENDRA AFIFUDIN', nim: '112410036', task: 'Logic Gate Functionality', progress: 0 },
+  { id: '1', name: 'SATRIO AIL SYAMSUDIN', nim: '112410044', task: 'Circuit Builder Development', progress: 100 },
+  { id: '2', name: 'ACH RIZKY NUR FEBRIAN', nim: '112410004', task: 'Converter & Calculator', progress: 100 },
+  { id: '3', name: 'AIZ SALAS AL FAUZY', nim: '112410013', task: 'UI/UX Design', progress: 100 },
+  { id: '4', name: 'M FATICHUL ICHSAN', nim: '112410026', task: 'Testing', progress: 100 },
+  { id: '5', name: 'MUHAMMAD NENDRA AFIFUDIN', nim: '112410036', task: 'Logic Gate Functionality', progress: 100 },
 ];
 
 export default function TeamManagerPage() {
@@ -48,18 +48,15 @@ export default function TeamManagerPage() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
+    // Save to localStorage only if teamMembers is not empty, to avoid overwriting with empty on initial load issue
+    if (teamMembers.length > 0) {
+      localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
+    }
   }, [teamMembers]);
 
   const handleDeleteMember = (id: string) => {
     setTeamMembers(prev => prev.filter(member => member.id !== id));
     toast({ title: "Member Removed", description: "Team member has been removed." });
-  };
-
-  const handleProgressChange = (id: string, newProgress: number) => {
-    setTeamMembers(prev => prev.map(member => 
-      member.id === id ? { ...member, progress: Math.max(0, Math.min(100, newProgress)) } : member
-    ));
   };
 
   return (
@@ -73,31 +70,27 @@ export default function TeamManagerPage() {
             <CardTitle className="flex items-center text-2xl"><Users className="mr-2 h-7 w-7 text-primary" /> Daftar Anggota Tim</CardTitle>
             <CardDescription className="text-base">Total Anggota: {teamMembers.length}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4"> {/* Removed max-h-[500px] overflow-y-auto */}
+          <CardContent className="space-y-3">
             {teamMembers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4 text-lg">Belum ada anggota tim. Default anggota akan dimuat ulang jika halaman di-refresh dan local storage kosong.</p>
+              <p className="text-muted-foreground text-center py-4 text-lg">Memuat anggota tim default...</p>
             ) : (
               teamMembers.map(member => (
-                <Card key={member.id} className="p-4 bg-muted/50">
+                <Card key={member.id} className="p-3 bg-muted/50">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold text-xl text-accent">{member.name} <span className="text-base text-muted-foreground">({member.nim})</span></h4>
-                      <p className="text-base text-muted-foreground">{member.task}</p>
+                      <h4 className="font-semibold text-lg text-accent">{member.name} <span className="text-sm text-muted-foreground">({member.nim})</span></h4>
+                      <p className="text-sm text-muted-foreground">{member.task}</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleDeleteMember(member.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteMember(member.id)} aria-label={`Hapus ${member.name}`}>
                       <Trash2 className="h-5 w-5 text-destructive" />
                     </Button>
                   </div>
                   <div className="mt-2">
-                    <div className="flex justify-between text-base mb-1">
+                    <div className="flex justify-between text-sm mb-1">
                       <span>Progress:</span>
                       <span>{member.progress}%</span>
                     </div>
                     <Progress value={member.progress} className="h-3" />
-                     <div className="flex gap-2 mt-2">
-                        <Button size="sm" variant="outline" onClick={() => handleProgressChange(member.id, member.progress - 10)}>-</Button>
-                        <Button size="sm" variant="outline" onClick={() => handleProgressChange(member.id, member.progress + 10)}>+</Button>
-                    </div>
                   </div>
                 </Card>
               ))
