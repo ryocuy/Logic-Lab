@@ -24,6 +24,14 @@ const availableTasks = [
   "Circuit Builder Development", "Converter & Calculator", "Documentation", "Testing"
 ];
 
+const defaultTeamMembers: TeamMember[] = [
+  { id: '1', name: 'SATRIO AIL SYAMSUDIN', nim: '112410044', task: 'Circuit Builder Development', progress: 0 },
+  { id: '2', name: 'ACH RIZKY NUR FEBRIAN', nim: '112410004', task: 'Converter & Calculator', progress: 0 },
+  { id: '3', name: 'AIZ SALAS AL FAUZY', nim: '112410013', task: 'UI/UX Design', progress: 0 },
+  { id: '4', name: 'M FATICHUL ICHSAN', nim: '112410026', task: 'Testing', progress: 0 },
+  { id: '5', name: 'MUHAMMAD NENDRA AFIFUDIN', nim: '112410036', task: 'Logic Gate Functionality', progress: 0 },
+];
+
 export default function TeamManagerPage() {
   const { toast } = useToast();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -32,16 +40,22 @@ export default function TeamManagerPage() {
   const [memberTask, setMemberTask] = useState('');
 
   useEffect(() => {
-    // Load team members from local storage
     const storedMembers = localStorage.getItem('teamMembersLogicLab');
-    if (storedMembers) {
+    if (storedMembers && JSON.parse(storedMembers).length > 0) {
       setTeamMembers(JSON.parse(storedMembers));
+    } else {
+      setTeamMembers(defaultTeamMembers);
     }
   }, []);
 
   useEffect(() => {
-    // Save team members to local storage whenever they change
-    localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
+    // Save team members to local storage whenever they change,
+    // but only if it's not the initial default set (or if the defaults have been modified)
+    // A simple check is if the current members are different from the default ones.
+    // For a more robust check, you might compare content or use a flag.
+    if (teamMembers.length > 0 || localStorage.getItem('teamMembersLogicLab') !== null) {
+      localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
+    }
   }, [teamMembers]);
 
   const handleAddMember = (e: React.FormEvent) => {
@@ -159,14 +173,8 @@ export default function TeamManagerPage() {
             <blockquote className="mt-2 border-l-2 border-primary pl-4 italic text-muted-foreground text-base">
               "Mulai hari ini saya kasih tugas uas ya, tolong dikerjakan secara kelompok maksimal 5 orang. Membuat aplikasi rangkaian digital dasar dan konversi sederhana. Boleh website atau desktop."
             </blockquote>
-            <p className="mt-4 font-semibold text-primary text-lg">Saran Pembagian Tugas:</p>
-            <ul className="list-disc list-inside mt-2 space-y-1 text-base text-muted-foreground">
-              {availableTasks.map(task => <li key={task}>{task}</li>)}
-            </ul>
-             <p className="mt-4 text-base text-accent-foreground">Pastikan setiap anggota tim memahami tugasnya dan bekerja secara kolaboratif!</p>
           </CardContent>
         </Card>
     </PageShell>
   );
 }
-
