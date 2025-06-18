@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PageShell from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
+import { Eye } from 'lucide-react';
 
 type ConversionType = 
   | 'binToDec' | 'decToBin' | 'decToHex' | 'hexToDec' 
@@ -29,23 +30,283 @@ const conversionTypes: { value: ConversionType; label: string; placeholder: stri
   { value: 'octToHex', label: 'Octal → Hexadecimal', placeholder: 'e.g., 377' },
 ];
 
+const generateManualConversionSteps = (type: ConversionType, input: string, output: string): string => {
+  let steps = `Langkah-langkah konversi ${conversionTypes.find(ct => ct.value === type)?.label} dari "${input}" menjadi "${output}":\n\n`;
+
+  switch (type) {
+    case 'binToDec':
+      steps += `Untuk mengonversi bilangan biner ${input} ke desimal:\n`;
+      let decValue = 0;
+      const binDigits = input.split('').reverse();
+      binDigits.forEach((digit, index) => {
+        const term = parseInt(digit) * (2 ** index);
+        steps += `- Digit ${digit} (pada posisi ${index} dari kanan, dimulai dari 0) dikalikan dengan 2^${index} = ${parseInt(digit)} * ${2 ** index} = ${term}\n`;
+        decValue += term;
+      });
+      steps += `\nTotal jumlah: ${binDigits.map((d, i) => `${parseInt(d)}*(2^${i})`).join(' + ')} = ${output}\n`;
+      steps += `Jadi, ${input} (biner) = ${output} (desimal).`;
+      break;
+
+    case 'decToBin':
+      steps += `Untuk mengonversi bilangan desimal ${input} ke biner:\n`;
+      let numDecToBin = parseInt(input);
+      if (isNaN(numDecToBin) || numDecToBin < 0) return "Input desimal tidak valid untuk konversi manual ini.";
+      if (numDecToBin === 0) {
+        steps += `- 0 (desimal) = 0 (biner).\n`;
+        break;
+      }
+      const remaindersDecToBin: number[] = [];
+      let currentNum = numDecToBin;
+      while (currentNum > 0) {
+        const remainder = currentNum % 2;
+        steps += `- ${currentNum} dibagi 2 = ${Math.floor(currentNum / 2)} sisa ${remainder}\n`;
+        remaindersDecToBin.push(remainder);
+        currentNum = Math.floor(currentNum / 2);
+      }
+      steps += `\nBaca sisa dari bawah ke atas: ${remaindersDecToBin.reverse().join('')}\n`;
+      steps += `Jadi, ${input} (desimal) = ${output} (biner).`;
+      break;
+
+    case 'binToHex':
+      steps += `Untuk mengonversi bilangan biner ${input} ke heksadesimal:\n`;
+      steps += `1. Kelompokkan bit biner menjadi grup 4-bit dari kanan. Tambahkan nol di kiri jika perlu.\n`;
+      let paddedInputBinToHex = input;
+      while (paddedInputBinToHex.length % 4 !== 0) {
+        paddedInputBinToHex = '0' + paddedInputBinToHex;
+      }
+      steps += `   Input setelah padding: ${paddedInputBinToHex}\n`;
+      const groupsBinToHex: string[] = [];
+      for (let i = 0; i < paddedInputBinToHex.length; i += 4) {
+        groupsBinToHex.push(paddedInputBinToHex.substring(i, i + 4));
+      }
+      steps += `   Grup 4-bit: ${groupsBinToHex.join(' | ')}\n`;
+      steps += `2. Konversi setiap grup 4-bit ke nilai heksadesimalnya:\n`;
+      const hexChars: string[] = [];
+      groupsBinToHex.forEach(group => {
+        const decVal = parseInt(group, 2);
+        const hexVal = decVal.toString(16).toUpperCase();
+        steps += `   - ${group} (biner) = ${decVal} (desimal) = ${hexVal} (heksadesimal)\n`;
+        hexChars.push(hexVal);
+      });
+      steps += `\nHasil gabungan: ${hexChars.join('')}\n`;
+      steps += `Jadi, ${input} (biner) = ${output} (heksadesimal).`;
+      break;
+
+    case 'hexToBin':
+      steps += `Untuk mengonversi bilangan heksadesimal ${input} ke biner:\n`;
+      steps += `1. Konversi setiap digit heksadesimal ke representasi biner 4-bit:\n`;
+      const inputHexToBin = input.toUpperCase();
+      let binResultHexToBin = "";
+      for (let i = 0; i < inputHexToBin.length; i++) {
+        const hexDigit = inputHexToBin[i];
+        const decEquiv = parseInt(hexDigit, 16);
+        const binEquiv = decEquiv.toString(2).padStart(4, '0');
+        steps += `   - ${hexDigit} (heksadesimal) = ${binEquiv} (biner)\n`;
+        binResultHexToBin += binEquiv;
+      }
+      steps += `\nGabungkan semua hasil biner: ${binResultHexToBin}\n`;
+      steps += `(Opsional: hilangkan nol di depan jika ada, kecuali jika hanya '0')\n`;
+      steps += `Jadi, ${input} (heksadesimal) = ${output} (biner).`;
+      break;
+
+    case 'decToHex':
+      steps += `Untuk mengonversi bilangan desimal ${input} ke heksadesimal:\n`;
+      let numDecToHex = parseInt(input);
+      if (isNaN(numDecToHex) || numDecToHex < 0) return "Input desimal tidak valid.";
+      if (numDecToHex === 0) {
+          steps += `- 0 (desimal) = 0 (heksadesimal).\n`;
+          break;
+      }
+      const remaindersDecToHex: string[] = [];
+      const hexMap = "0123456789ABCDEF";
+      let currentNumHex = numDecToHex;
+      while (currentNumHex > 0) {
+          const remainder = currentNumHex % 16;
+          steps += `- ${currentNumHex} dibagi 16 = ${Math.floor(currentNumHex / 16)} sisa ${remainder} (${hexMap[remainder]})\n`;
+          remaindersDecToHex.push(hexMap[remainder]);
+          currentNumHex = Math.floor(currentNumHex / 16);
+      }
+      steps += `\nBaca sisa dari bawah ke atas: ${remaindersDecToHex.reverse().join('')}\n`;
+      steps += `Jadi, ${input} (desimal) = ${output} (heksadesimal).`;
+      break;
+
+    case 'hexToDec':
+      steps += `Untuk mengonversi bilangan heksadesimal ${input} ke desimal:\n`;
+      let decValueHexToDec = 0;
+      const hexDigits = input.toUpperCase().split('').reverse();
+      hexDigits.forEach((digit, index) => {
+        const val = parseInt(digit, 16);
+        const term = val * (16 ** index);
+        steps += `- Digit ${digit} (pada posisi ${index} dari kanan) dikalikan dengan 16^${index} = ${val} * ${16 ** index} = ${term}\n`;
+        decValueHexToDec += term;
+      });
+      steps += `\nTotal jumlah: ${hexDigits.reverse().map((d, i, arr) => `${d}*(16^${arr.length - 1 - i})`).join(' + ')} = ${output}\n`;
+      steps += `Jadi, ${input} (heksadesimal) = ${output} (desimal).`;
+      break;
+    
+    // Octal Conversions
+    case 'binToOct':
+      steps += `Untuk mengonversi bilangan biner ${input} ke oktal:\n`;
+      steps += `1. Kelompokkan bit biner menjadi grup 3-bit dari kanan. Tambahkan nol di kiri jika perlu.\n`;
+      let paddedInputBinToOct = input;
+      while (paddedInputBinToOct.length % 3 !== 0) {
+        paddedInputBinToOct = '0' + paddedInputBinToOct;
+      }
+      if (input === "0") paddedInputBinToOct = "000"; // Handle case "0"
+      else if (paddedInputBinToOct.length === 0) paddedInputBinToOct = "000"; // Handle empty input for safety
+      
+      steps += `   Input setelah padding: ${paddedInputBinToOct}\n`;
+      const groupsBinToOct: string[] = [];
+      for (let i = 0; i < paddedInputBinToOct.length; i += 3) {
+        groupsBinToOct.push(paddedInputBinToOct.substring(i, i + 3));
+      }
+      steps += `   Grup 3-bit: ${groupsBinToOct.join(' | ')}\n`;
+      steps += `2. Konversi setiap grup 3-bit ke nilai oktalnya:\n`;
+      const octChars: string[] = [];
+      groupsBinToOct.forEach(group => {
+        const octVal = parseInt(group, 2).toString(8);
+        steps += `   - ${group} (biner) = ${octVal} (oktal)\n`;
+        octChars.push(octVal);
+      });
+      steps += `\nHasil gabungan: ${octChars.join('')}\n`;
+      steps += `Jadi, ${input} (biner) = ${output} (oktal).`;
+      break;
+
+    case 'octToBin':
+      steps += `Untuk mengonversi bilangan oktal ${input} ke biner:\n`;
+      steps += `1. Konversi setiap digit oktal ke representasi biner 3-bit:\n`;
+      let binResultOctToBin = "";
+      for (let i = 0; i < input.length; i++) {
+        const octDigit = input[i];
+        const binEquiv = parseInt(octDigit, 8).toString(2).padStart(3, '0');
+        steps += `   - ${octDigit} (oktal) = ${binEquiv} (biner)\n`;
+        binResultOctToBin += binEquiv;
+      }
+       // Remove leading zeros, but keep '0' if that's the result
+      let finalBinOutput = binResultOctToBin.replace(/^0+(?!$)/, '');
+      if (finalBinOutput === "") finalBinOutput = "0"; // if all were zeros
+
+      steps += `\nGabungkan semua hasil biner: ${binResultOctToBin}\n`;
+      if (binResultOctToBin !== finalBinOutput) {
+        steps += `Setelah menghilangkan nol di depan (jika ada): ${finalBinOutput}\n`;
+      }
+      steps += `Jadi, ${input} (oktal) = ${output} (biner).`;
+      break;
+
+    case 'decToOct':
+      steps += `Untuk mengonversi bilangan desimal ${input} ke oktal:\n`;
+      let numDecToOct = parseInt(input);
+      if (isNaN(numDecToOct) || numDecToOct < 0) return "Input desimal tidak valid.";
+      if (numDecToOct === 0) {
+          steps += `- 0 (desimal) = 0 (oktal).\n`;
+          break;
+      }
+      const remaindersDecToOct: number[] = [];
+      let currentNumOct = numDecToOct;
+      while (currentNumOct > 0) {
+          const remainder = currentNumOct % 8;
+          steps += `- ${currentNumOct} dibagi 8 = ${Math.floor(currentNumOct / 8)} sisa ${remainder}\n`;
+          remaindersDecToOct.push(remainder);
+          currentNumOct = Math.floor(currentNumOct / 8);
+      }
+      steps += `\nBaca sisa dari bawah ke atas: ${remaindersDecToOct.reverse().join('')}\n`;
+      steps += `Jadi, ${input} (desimal) = ${output} (oktal).`;
+      break;
+
+    case 'octToDec':
+      steps += `Untuk mengonversi bilangan oktal ${input} ke desimal:\n`;
+      let decValueOctToDec = 0;
+      const octDigits = input.split('').reverse();
+      octDigits.forEach((digit, index) => {
+        const term = parseInt(digit) * (8 ** index);
+        steps += `- Digit ${digit} (pada posisi ${index} dari kanan) dikalikan dengan 8^${index} = ${parseInt(digit)} * ${8 ** index} = ${term}\n`;
+        decValueOctToDec += term;
+      });
+      steps += `\nTotal jumlah: ${octDigits.reverse().map((d, i, arr) => `${d}*(8^${arr.length - 1 - i})`).join(' + ')} = ${output}\n`;
+      steps += `Jadi, ${input} (oktal) = ${output} (desimal).`;
+      break;
+    
+    case 'hexToOct':
+      steps += `Untuk mengonversi Heksadesimal (${input}) ke Oktal (${output}):\n`;
+      steps += `Langkah 1: Konversi Heksadesimal ke Biner.\n`;
+      let tempBin_hexToOct = "";
+      for (let i = 0; i < input.length; i++) {
+        tempBin_hexToOct += parseInt(input[i], 16).toString(2).padStart(4, '0');
+      }
+      tempBin_hexToOct = tempBin_hexToOct.replace(/^0+(?!$)/, '') || "0";
+      steps += `  ${input} (hex) = ${tempBin_hexToOct} (biner)\n\n`;
+      steps += `Langkah 2: Konversi Biner (${tempBin_hexToOct}) ke Oktal.\n`;
+      let paddedTempBin_hexToOct = tempBin_hexToOct;
+      while (paddedTempBin_hexToOct.length % 3 !== 0) {
+        paddedTempBin_hexToOct = '0' + paddedTempBin_hexToOct;
+      }
+      if (tempBin_hexToOct === "0") paddedTempBin_hexToOct = "000";
+      else if (paddedTempBin_hexToOct.length === 0) paddedTempBin_hexToOct = "000";
+      
+      let tempOct_hexToOct = "";
+      for (let i = 0; i < paddedTempBin_hexToOct.length; i += 3) {
+        tempOct_hexToOct += parseInt(paddedTempBin_hexToOct.substring(i, i+3), 2).toString(8);
+      }
+      steps += `  Kelompokkan biner menjadi 3-bit: ${paddedTempBin_hexToOct.match(/.{1,3}/g)?.join(' | ')}\n`;
+      steps += `  Konversi tiap grup: ${tempOct_hexToOct}\n`;
+      steps += `Jadi, ${input} (heksadesimal) = ${output} (oktal).`;
+      break;
+
+    case 'octToHex':
+      steps += `Untuk mengonversi Oktal (${input}) ke Heksadesimal (${output}):\n`;
+      steps += `Langkah 1: Konversi Oktal ke Biner.\n`;
+      let tempBin_octToHex = "";
+      for (let i = 0; i < input.length; i++) {
+        tempBin_octToHex += parseInt(input[i], 8).toString(2).padStart(3, '0');
+      }
+      tempBin_octToHex = tempBin_octToHex.replace(/^0+(?!$)/, '') || "0";
+      steps += `  ${input} (oktal) = ${tempBin_octToHex} (biner)\n\n`;
+      steps += `Langkah 2: Konversi Biner (${tempBin_octToHex}) ke Heksadesimal.\n`;
+      let paddedTempBin_octToHex = tempBin_octToHex;
+      while (paddedTempBin_octToHex.length % 4 !== 0) {
+        paddedTempBin_octToHex = '0' + paddedTempBin_octToHex;
+      }
+       if (tempBin_octToHex === "0") paddedTempBin_octToHex = "0000";
+       else if (paddedTempBin_octToHex.length === 0) paddedTempBin_octToHex = "0000";
+
+      let tempHex_octToHex = "";
+      for (let i = 0; i < paddedTempBin_octToHex.length; i += 4) {
+        tempHex_octToHex += parseInt(paddedTempBin_octToHex.substring(i, i+4), 2).toString(16).toUpperCase();
+      }
+      steps += `  Kelompokkan biner menjadi 4-bit: ${paddedTempBin_octToHex.match(/.{1,4}/g)?.join(' | ')}\n`;
+      steps += `  Konversi tiap grup: ${tempHex_octToHex}\n`;
+      steps += `Jadi, ${input} (oktal) = ${output} (heksadesimal).`;
+      break;
+
+    default:
+      steps += 'Langkah-langkah manual untuk konversi ini belum tersedia.';
+  }
+  return steps;
+};
+
+
 const NumberConverter: React.FC = () => {
   const [inputValue, setInputValue] = useState<string>('');
   const [conversionType, setConversionType] = useState<ConversionType>('binToDec');
   const [result, setResult] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [showManualSteps, setShowManualSteps] = useState<boolean>(false);
+  const [manualStepsContent, setManualStepsContent] = useState<string>('');
 
   const currentConversion = conversionTypes.find(ct => ct.value === conversionType);
 
-  useEffect(() => {
+  const performConversion = useCallback(() => {
     if (!inputValue.trim()) {
       setResult('');
       setError('');
+      setManualStepsContent('');
+      setShowManualSteps(false);
       return;
     }
 
     try {
       setError('');
+      setShowManualSteps(false); 
       let convertedValue = '';
       switch (conversionType) {
         case 'binToDec':
@@ -90,21 +351,29 @@ const NumberConverter: React.FC = () => {
             break;
         case 'hexToOct':
             if (!/^[0-9A-Fa-f]+$/.test(inputValue)) throw new Error('Invalid hexadecimal number');
-            convertedValue = parseInt(inputValue, 16).toString(8);
+            const binFromHex = parseInt(inputValue, 16).toString(2);
+            convertedValue = parseInt(binFromHex, 2).toString(8);
             break;
         case 'octToHex':
             if (!/^[0-7]+$/.test(inputValue)) throw new Error('Invalid octal number');
-            convertedValue = parseInt(inputValue, 8).toString(16).toUpperCase();
+            const binFromOct = parseInt(inputValue, 8).toString(2);
+            convertedValue = parseInt(binFromOct, 2).toString(16).toUpperCase();
             break;
         default:
           throw new Error('Invalid conversion type');
       }
       setResult(convertedValue);
+      setManualStepsContent(generateManualConversionSteps(conversionType, inputValue, convertedValue));
     } catch (e: any) {
       setError(e.message);
       setResult('');
+      setManualStepsContent('');
     }
   }, [inputValue, conversionType]);
+
+  useEffect(() => {
+    performConversion();
+  }, [performConversion]);
 
   return (
     <Card className="shadow-lg">
@@ -117,6 +386,8 @@ const NumberConverter: React.FC = () => {
           setInputValue(''); 
           setResult('');
           setError('');
+          setManualStepsContent('');
+          setShowManualSteps(false);
         }}>
           <SelectTrigger className="w-full h-12 text-lg">
             <SelectValue placeholder="Select conversion type" />
@@ -141,11 +412,28 @@ const NumberConverter: React.FC = () => {
 
         {error && <p className="text-destructive text-base text-center">{error}</p>}
         
-        {result && (
+        {result && !error && (
           <div className="p-6 bg-primary/10 rounded-lg text-center shadow-inner">
-            <p className="text-base text-muted-foreground mb-1">Hasil Konversi:</p>
-            <p className="text-4xl font-mono font-bold text-primary break-all">{result}</p>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-base text-muted-foreground mb-1">Hasil Konversi:</p>
+            </div>
+            <div className="flex items-center justify-center gap-x-3">
+                <p className="text-4xl font-mono font-bold text-primary break-all">{result}</p>
+                <Button variant="ghost" size="icon" onClick={() => setShowManualSteps(prev => !prev)} title="Tampilkan/Sembunyikan Langkah Manual" className="text-primary hover:text-accent">
+                    <Eye className="h-7 w-7" />
+                </Button>
+            </div>
           </div>
+        )}
+        {showManualSteps && manualStepsContent && !error && (
+            <Card className="mt-4 shadow-md">
+                <CardHeader>
+                    <CardTitle className="text-xl text-accent">Langkah Konversi Manual</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-muted/30 p-4 rounded-md overflow-x-auto">{manualStepsContent}</pre>
+                </CardContent>
+            </Card>
         )}
       </CardContent>
     </Card>
