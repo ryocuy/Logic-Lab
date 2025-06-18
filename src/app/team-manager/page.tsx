@@ -3,12 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import PageShell from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { UserPlus, Users, Trash2 } from 'lucide-react';
+import { Users, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 interface TeamMember {
@@ -18,11 +15,6 @@ interface TeamMember {
   task: string;
   progress: number;
 }
-
-const availableTasks = [
-  "UI/UX Design", "Front-End Development", "Logic Gate Functionality", 
-  "Circuit Builder Development", "Converter & Calculator", "Documentation", "Testing"
-];
 
 const defaultTeamMembers: TeamMember[] = [
   { id: '1', name: 'SATRIO AIL SYAMSUDIN', nim: '112410044', task: 'Circuit Builder Development', progress: 0 },
@@ -35,48 +27,34 @@ const defaultTeamMembers: TeamMember[] = [
 export default function TeamManagerPage() {
   const { toast } = useToast();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [memberName, setMemberName] = useState('');
-  const [memberNim, setMemberNim] = useState('');
-  const [memberTask, setMemberTask] = useState('');
 
   useEffect(() => {
     const storedMembers = localStorage.getItem('teamMembersLogicLab');
-    if (storedMembers && JSON.parse(storedMembers).length > 0) {
-      setTeamMembers(JSON.parse(storedMembers));
+    if (storedMembers) {
+      try {
+        const parsedMembers = JSON.parse(storedMembers);
+        // Only load from localStorage if it's not an empty array,
+        // otherwise, it might persist an accidentally cleared state.
+        if (Array.isArray(parsedMembers) && parsedMembers.length > 0) {
+          setTeamMembers(parsedMembers);
+        } else {
+          setTeamMembers(defaultTeamMembers);
+        }
+      } catch (error) {
+        console.error("Error parsing team members from localStorage:", error);
+        setTeamMembers(defaultTeamMembers); // Fallback to default if parsing fails
+      }
     } else {
       setTeamMembers(defaultTeamMembers);
     }
   }, []);
 
   useEffect(() => {
-    // Save team members to local storage whenever they change,
-    // but only if it's not the initial default set (or if the defaults have been modified)
-    // A simple check is if the current members are different from the default ones.
-    // For a more robust check, you might compare content or use a flag.
-    if (teamMembers.length > 0 || localStorage.getItem('teamMembersLogicLab') !== null) {
-      localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
-    }
+    // Save team members to local storage whenever they change.
+    // This will also save the default members if they are loaded and then modified.
+    // If teamMembers is an empty array (e.g., after deleting all members), store the empty array.
+    localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
   }, [teamMembers]);
-
-  const handleAddMember = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!memberName || !memberNim || !memberTask) {
-      toast({ title: "Error", description: "Please fill in all fields.", variant: "destructive" });
-      return;
-    }
-    const newMember: TeamMember = {
-      id: Date.now().toString(),
-      name: memberName,
-      nim: memberNim,
-      task: memberTask,
-      progress: 0, // Initial progress set to 0
-    };
-    setTeamMembers(prev => [...prev, newMember]);
-    setMemberName('');
-    setMemberNim('');
-    setMemberTask('');
-    toast({ title: "Success", description: `${memberName} added to the team.` });
-  };
 
   const handleDeleteMember = (id: string) => {
     setTeamMembers(prev => prev.filter(member => member.id !== id));
@@ -94,47 +72,15 @@ export default function TeamManagerPage() {
       title="Team Project Manager"
       subtitle="Kelola tim dan pembagian tugas untuk project rangkaian digital Anda."
     >
-      <div className="grid md:grid-cols-2 gap-8">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center text-2xl"><UserPlus className="mr-2 h-7 w-7 text-primary" /> Tambah Anggota Tim</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAddMember} className="space-y-4">
-              <div>
-                <Label htmlFor="memberName" className="text-lg">Nama Anggota</Label>
-                <Input id="memberName" value={memberName} onChange={(e) => setMemberName(e.target.value)} placeholder="Masukkan nama..." className="h-12 text-base"/>
-              </div>
-              <div>
-                <Label htmlFor="memberNim" className="text-lg">NIM</Label>
-                <Input id="memberNim" value={memberNim} onChange={(e) => setMemberNim(e.target.value)} placeholder="Masukkan NIM..." className="h-12 text-base"/>
-              </div>
-              <div>
-                <Label htmlFor="memberTask" className="text-lg">Tugas</Label>
-                <Select value={memberTask} onValueChange={setMemberTask}>
-                  <SelectTrigger id="memberTask" className="h-12 text-base">
-                    <SelectValue placeholder="-- Pilih Tugas --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTasks.map(task => (
-                      <SelectItem key={task} value={task} className="text-base">{task}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full text-lg py-3">Tambah Anggota</Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-8"> {/* Changed to single column layout */}
+        <Card className="shadow-lg md:col-span-1"> {/* Ensure it spans full width if needed */}
           <CardHeader>
             <CardTitle className="flex items-center text-2xl"><Users className="mr-2 h-7 w-7 text-primary" /> Daftar Anggota Tim</CardTitle>
             <CardDescription className="text-base">Total Anggota: {teamMembers.length}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
             {teamMembers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4 text-lg">Belum ada anggota tim.</p>
+              <p className="text-muted-foreground text-center py-4 text-lg">Belum ada anggota tim. Default anggota akan dimuat ulang jika halaman di-refresh dan local storage kosong.</p>
             ) : (
               teamMembers.map(member => (
                 <Card key={member.id} className="p-4 bg-muted/50">
