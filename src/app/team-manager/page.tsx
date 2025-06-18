@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import PageShell from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Users, Trash2 } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
+import { Users } from 'lucide-react';
 
 interface TeamMember {
   id: string;
@@ -25,39 +23,7 @@ const defaultTeamMembers: TeamMember[] = [
 ];
 
 export default function TeamManagerPage() {
-  const { toast } = useToast();
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-
-  useEffect(() => {
-    const storedMembers = localStorage.getItem('teamMembersLogicLab');
-    if (storedMembers) {
-      try {
-        const parsedMembers = JSON.parse(storedMembers);
-        if (Array.isArray(parsedMembers) && parsedMembers.length > 0) {
-          setTeamMembers(parsedMembers);
-        } else {
-          setTeamMembers(defaultTeamMembers);
-        }
-      } catch (error) {
-        console.error("Error parsing team members from localStorage:", error);
-        setTeamMembers(defaultTeamMembers); 
-      }
-    } else {
-      setTeamMembers(defaultTeamMembers);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Save to localStorage only if teamMembers is not empty, to avoid overwriting with empty on initial load issue
-    if (teamMembers.length > 0) {
-      localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
-    }
-  }, [teamMembers]);
-
-  const handleDeleteMember = (id: string) => {
-    setTeamMembers(prev => prev.filter(member => member.id !== id));
-    toast({ title: "Member Removed", description: "Team member has been removed." });
-  };
+  const [teamMembers] = useState<TeamMember[]>(defaultTeamMembers);
 
   return (
     <PageShell
@@ -70,27 +36,25 @@ export default function TeamManagerPage() {
             <CardTitle className="flex items-center text-2xl"><Users className="mr-2 h-7 w-7 text-primary" /> Daftar Anggota Tim</CardTitle>
             <CardDescription className="text-base">Total Anggota: {teamMembers.length}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2"> {/* Reduced space-y for compactness */}
             {teamMembers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4 text-lg">Memuat anggota tim default...</p>
+              <p className="text-muted-foreground text-center py-4 text-lg">Tidak ada anggota tim.</p>
             ) : (
               teamMembers.map(member => (
-                <Card key={member.id} className="p-3 bg-muted/50">
+                <Card key={member.id} className="p-2 bg-muted/50"> {/* Reduced padding */}
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold text-lg text-accent">{member.name} <span className="text-sm text-muted-foreground">({member.nim})</span></h4>
-                      <p className="text-sm text-muted-foreground">{member.task}</p>
+                      <h4 className="font-semibold text-md text-accent">{member.name} <span className="text-xs text-muted-foreground">({member.nim})</span></h4> {/* Reduced font size */}
+                      <p className="text-xs text-muted-foreground">{member.task}</p> {/* Reduced font size */}
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleDeleteMember(member.id)} aria-label={`Hapus ${member.name}`}>
-                      <Trash2 className="h-5 w-5 text-destructive" />
-                    </Button>
+                    {/* Delete button removed */}
                   </div>
-                  <div className="mt-2">
-                    <div className="flex justify-between text-sm mb-1">
+                  <div className="mt-1"> {/* Reduced margin */}
+                    <div className="flex justify-between text-xs mb-0.5"> {/* Reduced font size and margin */}
                       <span>Progress:</span>
                       <span>{member.progress}%</span>
                     </div>
-                    <Progress value={member.progress} className="h-3" />
+                    <Progress value={member.progress} className="h-2" /> {/* Reduced height */}
                   </div>
                 </Card>
               ))
