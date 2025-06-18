@@ -33,8 +33,6 @@ export default function TeamManagerPage() {
     if (storedMembers) {
       try {
         const parsedMembers = JSON.parse(storedMembers);
-        // Only load from localStorage if it's not an empty array,
-        // otherwise, it might persist an accidentally cleared state.
         if (Array.isArray(parsedMembers) && parsedMembers.length > 0) {
           setTeamMembers(parsedMembers);
         } else {
@@ -42,7 +40,7 @@ export default function TeamManagerPage() {
         }
       } catch (error) {
         console.error("Error parsing team members from localStorage:", error);
-        setTeamMembers(defaultTeamMembers); // Fallback to default if parsing fails
+        setTeamMembers(defaultTeamMembers); 
       }
     } else {
       setTeamMembers(defaultTeamMembers);
@@ -50,9 +48,6 @@ export default function TeamManagerPage() {
   }, []);
 
   useEffect(() => {
-    // Save team members to local storage whenever they change.
-    // This will also save the default members if they are loaded and then modified.
-    // If teamMembers is an empty array (e.g., after deleting all members), store the empty array.
     localStorage.setItem('teamMembersLogicLab', JSON.stringify(teamMembers));
   }, [teamMembers]);
 
@@ -72,13 +67,13 @@ export default function TeamManagerPage() {
       title="Team Project Manager"
       subtitle="Kelola tim dan pembagian tugas untuk project rangkaian digital Anda."
     >
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-8"> {/* Changed to single column layout */}
-        <Card className="shadow-lg md:col-span-1"> {/* Ensure it spans full width if needed */}
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
+        <Card className="shadow-lg md:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center text-2xl"><Users className="mr-2 h-7 w-7 text-primary" /> Daftar Anggota Tim</CardTitle>
             <CardDescription className="text-base">Total Anggota: {teamMembers.length}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
+          <CardContent className="space-y-4"> {/* Removed max-h-[500px] overflow-y-auto */}
             {teamMembers.length === 0 ? (
               <p className="text-muted-foreground text-center py-4 text-lg">Belum ada anggota tim. Default anggota akan dimuat ulang jika halaman di-refresh dan local storage kosong.</p>
             ) : (
